@@ -1,6 +1,7 @@
 mod grid;
 mod grid_diff;
 mod op_alias;
+mod universe;
 mod utils;
 
 use wasm_bindgen::prelude::*;
