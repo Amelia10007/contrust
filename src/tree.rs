@@ -19,6 +19,10 @@ impl<T> TreeNode<T> {
         &mut self.data
     }
 
+    pub fn is_leaf(&self) -> bool {
+        self.children.is_empty()
+    }
+
     pub fn children(&self) -> &[Self] {
         self.children.as_slice()
     }

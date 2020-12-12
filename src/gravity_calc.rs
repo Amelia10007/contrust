@@ -89,11 +89,16 @@ impl ChildRectLocation {
     }
 }
 
+/// # Params
+/// 1. `mass_points` 質点
+/// 1. `accels` 計算結果の格納先．
+/// 1. `gravity_constant` 万有引力定数．
+/// 1. `minimum_ratio_for_integration` `質点-グリッド重心間距離/グリッド長さ`がこの値を上回ったら，グリッド内の情報を統合した引力計算を行う．
 pub fn calculate_accels(
     mass_points: &[MassPoint],
     accels: &mut [Pair<Accel>],
     gravity_constant: GravityConstant,
-    integration_ratio_threshold: Unitless,
+    minimum_ratio_for_integration: Unitless,
 ) {
     let root = {
         let mut root = construct_root(mass_points);
@@ -115,7 +120,7 @@ pub fn calculate_accels(
             mass_point,
             &root,
             gravity_constant,
-            integration_ratio_threshold,
+            minimum_ratio_for_integration,
         );
     }
 }
@@ -210,9 +215,9 @@ fn calculate_accel(
     mass_point: StaticMassPoint,
     rect: &TreeNode<Rect>,
     gravity_constant: GravityConstant,
-    integration_ratio_threshold: Unitless,
+    minimum_ratio_for_integration: Unitless,
 ) -> Pair<Accel> {
-    let can_integrate = {
+    let distance_condition = {
         let rect = rect.data();
         let norm = (mass_point.position - rect.mass_center)
             .into_iter()
@@ -223,11 +228,13 @@ fn calculate_accel(
             .fold(Meter2::new(1.0), |acc, cur| acc + cur * cur);
         let ratio = norm / len2;
 
-        // 質点と重心が十分離れていれば，領域内の全質点の内容を統合しておけ
-        ratio > integration_ratio_threshold
+        // 質点と重心が十分離れていれば，領域内の全質点の内容を統合しておｋ
+        ratio > minimum_ratio_for_integration
     };
+    // 領域に子がもうなければ統合しておｋ．なぜならその領域には質点が1つしかないから．
+    let tree_condition = rect.is_leaf();
 
-    if can_integrate {
+    if distance_condition || tree_condition {
         let rect = rect.data();
         // 重心がこの質点の位置と一致する場合，自身が自身に与える引力を計算することになってしまう．
         // 実際にはそんなことはないので，上記のケースはとばす．
@@ -237,6 +244,7 @@ fn calculate_accel(
             accel_between(mass_point, rect, gravity_constant)
         }
     } else {
+        debug_assert!(!rect.is_leaf());
         rect.children()
             .iter()
             .map(|child| {
@@ -244,7 +252,7 @@ fn calculate_accel(
                     mass_point,
                     child,
                     gravity_constant,
-                    integration_ratio_threshold,
+                    minimum_ratio_for_integration,
                 )
             })
             .fold(Default::default(), |acc, cur| acc + cur)
