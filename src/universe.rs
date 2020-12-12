@@ -17,6 +17,8 @@ pub struct Universe {
     ys: Vec<Meter>,
     us: Vec<Velocity>,
     vs: Vec<Velocity>,
+
+    minimum_ratio_for_integration: Unitless,
 }
 
 impl Universe {
@@ -43,6 +45,7 @@ impl Universe {
             ys: vec![],
             us: vec![],
             vs: vec![],
+            minimum_ratio_for_integration: Unitless::new(1.0),
         }
     }
 
@@ -82,6 +85,10 @@ impl Universe {
         self.us.push(Velocity::new(u));
         self.vs.push(Velocity::new(v));
     }
+
+    pub fn set_minimum_ratio_for_integration(&mut self, ratio: Quantity) {
+        self.minimum_ratio_for_integration = Unitless::new(ratio);
+    }
 }
 
 impl State for Universe {
@@ -97,25 +104,12 @@ impl State for Universe {
             .collect();
 
         let mut accels = vec![Default::default(); self.mass_count()];
-        let threshold = Unitless::new(1.0);
         crate::gravity_calc::calculate_accels(
             &self.masses().collect::<Vec<_>>(),
             &mut accels,
             self.gravity_constant,
-            threshold,
+            self.minimum_ratio_for_integration,
         );
-
-        // let accels = self
-        //     .masses()
-        //     .enumerate()
-        //     .map(|(i, receiver)| {
-        //         self.masses()
-        //             .enumerate()
-        //             .filter(|&(j, _)| i != j)
-        //             .map(|(_, applier)| get_accel(receiver, applier, self.gravity_constant))
-        //             .fold(Pair::default(), |acc, cur| acc + cur)
-        //     })
-        //     .collect();
 
         UniverseDiff { velocities, accels }
     }
@@ -176,32 +170,16 @@ impl Mul<Second> for UniverseDiff {
         let ys = self.velocities.iter().map(|&v| v.y * rhs).collect();
         let us = self.accels.iter().map(|&a| a.x * rhs).collect();
         let vs = self.accels.iter().map(|&a| a.y * rhs).collect();
-        let ms = vec![];
-        let gravity_constant = GravityConstant::default();
         Universe {
-            gravity_constant,
-            ms,
+            gravity_constant: GravityConstant::default(),
+            ms: vec![],
             xs,
             ys,
             us,
             vs,
+            minimum_ratio_for_integration: Unitless::default(),
         }
     }
-}
-
-fn get_accel(
-    receiver: MassPoint,
-    applier: MassPoint,
-    gravity_constant: GravityConstant,
-) -> Pair<Accel> {
-    let diff = applier.position - receiver.position;
-    let len = diff
-        .map(|d| d * d)
-        .into_iter()
-        .fold(Meter2::default(), |acc, cur| acc + cur)
-        .sqrt();
-
-    diff * gravity_constant * applier.mass / (len * len * len)
 }
 
 #[cfg(test)]
