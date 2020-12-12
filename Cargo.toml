@@ -13,6 +13,13 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
+apply = "*"
+cell = "*"
+dimensioned = {git = "https://github.com/Amelia10007/dimensioned.git", branch = "amelia10007-patch-impl-trait"}
+itertools = "*"
+iter_vals = "*"
+pair_macro = {version = "0.1.3", features = ["num-traits"]}
+
 wasm-bindgen = "0.2.63"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
