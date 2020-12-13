@@ -2,3 +2,8 @@
     border: cyan 3px inset;
     background-color: black;
 }
+
+#fps {
+    white-space: pre;
+    font-family: monospace;
+}
