@@ -18,5 +18,6 @@ pub type Second = si::Second<Quantity>;
 pub type Meter2 = si::Meter2<Quantity>;
 pub type Velocity = si::MeterPerSecond<Quantity>;
 pub type Accel = si::MeterPerSecond2<Quantity>;
+pub type Density = si::KilogramPerMeter3<Quantity>;
 pub type KilogramMeter = Prod<Kilogram, Meter>;
 pub type GravityConstant = derived::GravityConstant<Quantity>;
