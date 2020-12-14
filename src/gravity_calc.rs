@@ -5,7 +5,6 @@ use apply::Apply;
 use dimensioned::Sqrt;
 use itertools::Itertools;
 use pair_macro::Pair;
-use std::collections::HashMap;
 
 /// 静止した質点を表す．
 #[derive(Debug, Copy, Clone)]
@@ -110,19 +109,19 @@ pub fn calculate_accels(
         root
     };
 
-    for (mass_point, accel) in mass_points
+    mass_points
         .iter()
         .copied()
         .map(StaticMassPoint::from_mass_point)
         .zip_eq(accels.iter_mut())
-    {
-        *accel = calculate_accel(
-            mass_point,
-            &root,
-            gravity_constant,
-            minimum_ratio_for_integration,
-        );
-    }
+        .for_each(|(mass_point, accel)| {
+            *accel = calculate_accel(
+                mass_point,
+                &root,
+                gravity_constant,
+                minimum_ratio_for_integration,
+            )
+        });
 }
 
 fn construct_root(mass_points: &[MassPoint]) -> TreeNode<Rect> {
@@ -162,17 +161,13 @@ fn construct_tree<I: ExactSizeIterator<Item = StaticMassPoint>>(
             rect.data_mut().mass_center = m.position;
         }
         _ => {
-            let map = {
-                let mut map = HashMap::new();
-                for mass_point in mass_points {
-                    let location = ChildRectLocation::locate(
-                        mass_point.position,
-                        rect.data().geometric_center,
-                    );
-                    map.entry(location).or_insert(vec![]).push(mass_point);
-                }
-                map
-            };
+            let map = mass_points
+                .map(|mp| {
+                    let location =
+                        ChildRectLocation::locate(mp.position, rect.data().geometric_center);
+                    (location, mp)
+                })
+                .into_group_map();
 
             for (location, mass_points) in map
                 .into_iter()
