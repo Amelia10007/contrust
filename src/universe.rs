@@ -2,7 +2,9 @@ use crate::mass::MassPoint;
 use crate::solver::{RungeKutta4, Solver};
 use crate::state::State;
 use crate::type_alias::*;
-use dimensioned::Sqrt;
+use dimensioned::typenum::P3;
+use dimensioned::{Root, Sqrt};
+use itertools::{Either, Itertools};
 use pair_macro::Pair;
 use std::ops::{AddAssign, Mul};
 use wasm_bindgen::prelude::*;
@@ -76,6 +78,15 @@ impl Universe {
     pub fn tick(&mut self, duration_second: Quantity) {
         RungeKutta4::progress(self, Second::new(duration_second));
         //ForwardEuler::progress(self, Second::new(duration_second));
+
+        let density = Density::new(5.0);
+        let masses = merge_masspoints(self.masses().collect(), density);
+
+        self.ms = masses.iter().map(|mp| mp.mass).collect();
+        self.xs = masses.iter().map(|mp| mp.position.x).collect();
+        self.ys = masses.iter().map(|mp| mp.position.y).collect();
+        self.us = masses.iter().map(|mp| mp.velocity.x).collect();
+        self.vs = masses.iter().map(|mp| mp.velocity.y).collect();
     }
 
     pub fn add_mass(&mut self, m: Quantity, x: Quantity, y: Quantity, u: Quantity, v: Quantity) {
@@ -182,28 +193,46 @@ impl Mul<Second> for UniverseDiff {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn merge_masspoints(mut mass_points: Vec<MassPoint>, density: Density) -> Vec<MassPoint> {
+    let mut result = vec![];
 
-    #[test]
-    fn test_get_accel() {
-        let gravity_constant = GravityConstant::new(1.0);
-        // distance: 5 [m]
-        let receiver = MassPoint::new(
-            Kilogram::new(10.0),
-            Pair::new(1.0, 1.0).map(|p| Meter::new(p)),
-            Default::default(),
-        );
-        let applier = MassPoint::new(
-            Kilogram::new(1.0),
-            Pair::new(4.0, 5.0).map(|p| Meter::new(p)),
-            Default::default(),
-        );
+    while let Some(temp) = mass_points.pop() {
+        let (conflicts, unconflicts): (Vec<_>, Vec<_>) =
+            mass_points.into_iter().partition_map(|mp| {
+                if conflicts(mp, temp, density) {
+                    Either::Left(mp)
+                } else {
+                    Either::Right(mp)
+                }
+            });
 
-        let accel = get_accel(receiver, applier, gravity_constant);
+        let merged = conflicts
+            .into_iter()
+            .fold(temp, |merged, m| merge(merged, m));
 
-        assert_eq!(Accel::new(3.0 / 5.0 / 25.0), accel.x);
-        assert_eq!(Accel::new(4.0 / 5.0 / 25.0), accel.y);
+        result.push(merged);
+
+        mass_points = unconflicts;
     }
+
+    result
+}
+
+fn conflicts(mp1: MassPoint, mp2: MassPoint, density: Density) -> bool {
+    let r1 = (mp1.mass / density).root(P3::new());
+    let r2 = (mp2.mass / density).root(P3::new());
+
+    let distance = (mp1.position - mp2.position)
+        .into_iter()
+        .fold(Meter2::new(0.0), |acc, cur| acc + cur * cur)
+        .sqrt();
+
+    distance < r1 + r2
+}
+
+fn merge(a: MassPoint, b: MassPoint) -> MassPoint {
+    let mass = a.mass + b.mass;
+    let position = (a.position * a.mass + b.position * b.mass) / mass;
+    let velocity = (a.velocity * a.mass + b.velocity * b.mass) / mass;
+    MassPoint::new(mass, position, velocity)
 }
