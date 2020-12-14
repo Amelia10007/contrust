@@ -70,9 +70,9 @@ const fps = new class {
         this.fps.textContent = `
         FPS:
             latest = ${Math.round(fps)}
-            avg of last ${this.capacity} = ${Math.round(mean)}
+            avg   of last ${this.capacity} = ${Math.round(mean)}
             worst of last ${this.capacity} = ${Math.round(min)}
-            best of last ${this.capacity} = ${Math.round(max)}
+            best  of last ${this.capacity} = ${Math.round(max)}
         `.trim();
     }
 };
@@ -87,35 +87,22 @@ const renderLoop = () => {
     requestAnimationFrame(renderLoop);
 };
 
-for (let theta = 0; theta < 360; theta += 10) {
+for (let theta = 0; theta < 360; theta += 5) {
     const radian = theta / 180.0 * Math.PI;
-    for (let r = 10; r < 200; r += 10) {
+    for (let r = 10; r < 200; r += 5) {
         const m = 10;
         const x = r * Math.cos(radian) + universeCanvas.width / 2.0;
         const y = r * Math.sin(radian) + universeCanvas.height / 2.0;
 
+        const V = 0.2;
         const R = 3.5;
 
-        const u = r * Math.cos(radian + Math.PI / 2.0) * 0.035 + (Math.random() - 0.5) * R;
-        const v = r * Math.sin(radian + Math.PI / 2.0) * 0.035 + (Math.random() - 0.5) * R;
+        const u = r * Math.cos(radian + Math.PI / 2.0) * V + (Math.random() - 0.5) * R;
+        const v = r * Math.sin(radian + Math.PI / 2.0) * V + (Math.random() - 0.5) * R;
 
         universe.add_mass(m, x, y, u, v);
     }
 }
-
-// for (let x = 0; x < universeCanvas.width; x += 15) {
-//     for (let y = 0; y < universeCanvas.height; y += 15) {
-//         const m = 10;
-//         const V = 1.5;
-//         const u = (Math.random() - 0.5) * V;
-//         const v = (Math.random() - 0.5) * V;
-
-//         universe.add_mass(m, x, y, u, v);
-//     }
-// }
-
-// universe.add_mass(10, 300, 300, 0.1, 0);
-// universe.add_mass(10, 200, 400, -0.1, 0);
 
 universe.set_minimum_ratio_for_integration(2.0);
 
