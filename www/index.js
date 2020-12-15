@@ -1,5 +1,7 @@
-import { build_thread_pool, Universe } from "contrust/contrust_bg.js";
+import { Universe } from "contrust/contrust_bg.js";
 import { memory } from "contrust/contrust_bg";
+
+const infoDiv = document.getElementById("info");
 
 const universe = Universe.new();
 
@@ -37,6 +39,8 @@ const drawUniverse = () => {
     }
 
     canvasContext.stroke();
+
+    infoDiv.textContent = `${count} stars`;
 };
 
 const fps = new class {
