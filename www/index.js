@@ -35,7 +35,7 @@ const drawUniverse = () => {
 
         const radius = m ** (1 / 3);
 
-        canvasContext.fillRect(x, y, radius, radius);
+        canvasContext.fillRect(x - radius / 2, y - radius / 2, radius, radius);
     }
 
     canvasContext.stroke();
