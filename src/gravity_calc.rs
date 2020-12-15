@@ -98,6 +98,7 @@ pub fn calculate_accels(
     accels: &mut [Pair<Accel>],
     gravity_constant: GravityConstant,
     minimum_ratio_for_integration: Unitless,
+    gravity_cutoff: Meter,
 ) {
     let root = {
         let mut root = construct_root(mass_points);
@@ -119,6 +120,7 @@ pub fn calculate_accels(
                 mass_point,
                 &root,
                 gravity_constant,
+                gravity_cutoff,
                 minimum_ratio_for_integration,
             )
         });
@@ -210,6 +212,7 @@ fn calculate_accel(
     mass_point: StaticMassPoint,
     rect: &TreeNode<Rect>,
     gravity_constant: GravityConstant,
+    gravity_cutoff: Meter,
     minimum_ratio_for_integration: Unitless,
 ) -> Pair<Accel> {
     let distance_condition = {
@@ -236,7 +239,7 @@ fn calculate_accel(
         if rect.mass_center == mass_point.position {
             Default::default()
         } else {
-            accel_between(mass_point, rect, gravity_constant)
+            accel_between(mass_point, rect, gravity_constant, gravity_cutoff)
         }
     } else {
         debug_assert!(!rect.is_leaf());
@@ -247,6 +250,7 @@ fn calculate_accel(
                     mass_point,
                     child,
                     gravity_constant,
+                    gravity_cutoff,
                     minimum_ratio_for_integration,
                 )
             })
@@ -258,13 +262,18 @@ fn accel_between(
     receiver: StaticMassPoint,
     applier: &Rect,
     gravity_constant: GravityConstant,
+    gravity_cutoff: Meter,
 ) -> Pair<Accel> {
     let diff = applier.mass_center - receiver.position;
-    let len = diff
+    let square_sum = diff
         .map(|d| d * d)
         .into_iter()
-        .fold(Meter2::default(), |acc, cur| acc + cur)
-        .sqrt();
+        .fold(Meter2::default(), |acc, cur| acc + cur);
 
-    diff * gravity_constant * applier.mass / (len * len * len)
+    let normal_diff = diff / square_sum.sqrt();
+
+    let cutoff = gravity_cutoff * gravity_cutoff;
+    let len = square_sum + cutoff;
+
+    normal_diff * gravity_constant * applier.mass / len
 }

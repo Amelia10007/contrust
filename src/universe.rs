@@ -114,12 +114,15 @@ impl State for Universe {
             .map(|(&u, &v)| Pair::new(u, v))
             .collect();
 
+        let gravity_cutoff = Meter::new(2.5);
+
         let mut accels = vec![Default::default(); self.mass_count()];
         crate::gravity_calc::calculate_accels(
             &self.masses().collect::<Vec<_>>(),
             &mut accels,
             self.gravity_constant,
             self.minimum_ratio_for_integration,
+            gravity_cutoff,
         );
 
         UniverseDiff { velocities, accels }
