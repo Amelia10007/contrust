@@ -4,8 +4,8 @@ use crate::state::State;
 use crate::type_alias::*;
 use dimensioned::typenum::P3;
 use dimensioned::{Root, Sqrt};
-use itertools::{Either, Itertools};
 use pair_macro::Pair;
+use rand::seq::SliceRandom;
 use std::ops::{AddAssign, Mul};
 use wasm_bindgen::prelude::*;
 
@@ -199,23 +199,24 @@ impl Mul<Second> for UniverseDiff {
 fn merge_masspoints(mut mass_points: Vec<MassPoint>, density: Density) -> Vec<MassPoint> {
     let mut result = vec![];
 
-    while let Some(temp) = mass_points.pop() {
-        let (conflicts, unconflicts): (Vec<_>, Vec<_>) =
-            mass_points.into_iter().partition_map(|mp| {
-                if conflicts(mp, temp, density) {
-                    Either::Left(mp)
+    let mut rng = rand::thread_rng();
+    mass_points.shuffle(&mut rng);
+
+    // O(n) operation
+    loop {
+        match (mass_points.pop(), mass_points.pop()) {
+            (Some(mp1), Some(mp2)) => {
+                if conflicts(mp1, mp2, density) {
+                    result.push(merge(mp1, mp2));
                 } else {
-                    Either::Right(mp)
+                    result.push(mp1);
+                    result.push(mp2);
                 }
-            });
-
-        let merged = conflicts
-            .into_iter()
-            .fold(temp, |merged, m| merge(merged, m));
-
-        result.push(merged);
-
-        mass_points = unconflicts;
+            }
+            (Some(mp), None) => result.push(mp),
+            (None, Some(mp)) => result.push(mp),
+            (None, None) => break,
+        }
     }
 
     result
