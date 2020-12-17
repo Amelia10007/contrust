@@ -11,6 +11,9 @@ const canvasContext = universeCanvas.getContext("2d");
 universeCanvas.width = 800;
 universeCanvas.height = 600;
 
+let display_offset_x = 0;
+let display_offset_y = 0;
+
 /**
  * Draw current universe state.
  */
@@ -30,8 +33,8 @@ const drawUniverse = () => {
 
     for (let i = 0; i < count; i++) {
         const m = ms[i];
-        const x = xs[i];
-        const y = ys[i];
+        const x = xs[i] + display_offset_x;
+        const y = ys[i] + display_offset_y;
 
         const radius = m ** (1 / 3);
 
@@ -112,3 +115,13 @@ universe.set_minimum_ratio_for_integration(2.0);
 
 // start rendering
 renderLoop();
+
+document.body.addEventListener('keydown', e => {
+    const OFFSET = 10;
+    switch (e.key) {
+        case 'a': display_offset_x += OFFSET; break;
+        case 'd': display_offset_x -= OFFSET; break;
+        case 'w': display_offset_y += OFFSET; break;
+        case 's': display_offset_y -= OFFSET; break;
+    }
+});
