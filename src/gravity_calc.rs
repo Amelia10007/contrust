@@ -93,6 +93,7 @@ impl ChildRectLocation {
 /// 1. `accels` 計算結果の格納先．
 /// 1. `gravity_constant` 万有引力定数．
 /// 1. `minimum_ratio_for_integration` `質点-グリッド重心間距離/グリッド長さ`がこの値を上回ったら，グリッド内の情報を統合した引力計算を行う．
+/// この値が大きいほど計算は万有引力則に則ったものになるが計算は遅くなり，小さいほど計算が早くなるが正確性は落ちる．
 pub fn calculate_accels(
     mass_points: &[MassPoint],
     accels: &mut [Pair<Accel>],
