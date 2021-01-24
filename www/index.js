@@ -11,8 +11,9 @@ const canvasContext = universeCanvas.getContext("2d");
 universeCanvas.width = 800;
 universeCanvas.height = 600;
 
-let display_offset_x = 0;
-let display_offset_y = 0;
+let displayOffsetX = -universeCanvas.width / 2;
+let displayOffsetY = -universeCanvas.height / 2;
+let expantionRatio = 0;
 
 /**
  * Draw current universe state.
@@ -31,14 +32,17 @@ const drawUniverse = () => {
     const yPtr = universe.position_y_ptr();
     const ys = new Float64Array(memory.buffer, yPtr, count);
 
+    const ratio = Math.pow(2, expantionRatio);
+
+
     for (let i = 0; i < count; i++) {
-        const m = ms[i];
-        const x = xs[i] + display_offset_x;
-        const y = ys[i] + display_offset_y;
+        // 画面に表示するときの座標を求める
+        const m = ms[i] * ratio;
+        const radius = m ** (1 / 3.5);
+        const x = (xs[i] + displayOffsetX) * ratio - radius / 2 + universeCanvas.width / 2;
+        const y = (ys[i] + displayOffsetY) * ratio - radius / 2 + universeCanvas.height / 2;
 
-        const radius = m ** (1 / 3);
-
-        canvasContext.fillRect(x - radius / 2, y - radius / 2, radius, radius);
+        canvasContext.fillRect(x, y, radius, radius);
     }
 
     canvasContext.stroke();
@@ -94,22 +98,23 @@ const renderLoop = () => {
     requestAnimationFrame(renderLoop);
 };
 
-for (let theta = 0; theta < 360; theta += 5) {
+for (let theta = 0; theta < 360; theta += 10) {
     const radian = theta / 180.0 * Math.PI;
-    for (let r = 10; r < 200; r += 5) {
-        const m = 10;
+    for (let r = 100; r < 200; r += 2) {
+        const m = 1;
         const x = r * Math.cos(radian) + universeCanvas.width / 2.0;
         const y = r * Math.sin(radian) + universeCanvas.height / 2.0;
 
-        const V = 0.2;
-        const R = 3.5;
+        const V = 250;
 
-        const u = r * Math.cos(radian + Math.PI / 2.0) * V + (Math.random() - 0.5) * R;
-        const v = r * Math.sin(radian + Math.PI / 2.0) * V + (Math.random() - 0.5) * R;
+        const u = Math.pow(r + 100, -1 / 1.5) * Math.cos(radian + Math.PI / 2.0) * V;
+        const v = Math.pow(r + 100, -1 / 1.5) * Math.sin(radian + Math.PI / 2.0) * V;
 
         universe.add_mass(m, x, y, u, v);
     }
 }
+
+universe.add_mass(10000, universeCanvas.width / 2.0, universeCanvas.height / 2.0, 0, 0);
 
 universe.set_minimum_ratio_for_integration(2.0);
 
@@ -117,11 +122,14 @@ universe.set_minimum_ratio_for_integration(2.0);
 renderLoop();
 
 document.body.addEventListener('keydown', e => {
-    const OFFSET = 10;
+    const offset = 10;
+    const shift = offset * Math.pow(2, -expantionRatio);
     switch (e.key) {
-        case 'a': display_offset_x += OFFSET; break;
-        case 'd': display_offset_x -= OFFSET; break;
-        case 'w': display_offset_y += OFFSET; break;
-        case 's': display_offset_y -= OFFSET; break;
+        case 'a': displayOffsetX += shift; break;
+        case 'd': displayOffsetX -= shift; break;
+        case 'w': displayOffsetY += shift; break;
+        case 's': displayOffsetY -= shift; break;
+        case 'z': expantionRatio++; break;
+        case 'x': expantionRatio--; break;
     }
 });
