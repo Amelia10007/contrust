@@ -75,6 +75,14 @@ impl Universe {
         self.vs.as_ptr().cast()
     }
 
+    pub fn set_gravity_constant(&mut self, gravity_constant: f64) {
+        self.gravity_constant = GravityConstant::new(gravity_constant);
+    }
+
+    pub fn set_minimum_ratio_for_integration(&mut self, ratio: Quantity) {
+        self.minimum_ratio_for_integration = Unitless::new(ratio);
+    }
+
     pub fn tick(&mut self, duration_second: Quantity) {
         RungeKutta4::progress(self, Second::new(duration_second));
         //ForwardEuler::progress(self, Second::new(duration_second));
@@ -95,10 +103,6 @@ impl Universe {
         self.ys.push(Meter::new(y));
         self.us.push(Velocity::new(u));
         self.vs.push(Velocity::new(v));
-    }
-
-    pub fn set_minimum_ratio_for_integration(&mut self, ratio: Quantity) {
-        self.minimum_ratio_for_integration = Unitless::new(ratio);
     }
 }
 
