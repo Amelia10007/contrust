@@ -6,6 +6,30 @@ use dimensioned::Sqrt;
 use itertools::Itertools;
 use pair_macro::Pair;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GravityCalculationParameter {
+    /// 万有引力定数．
+    pub gravity_constant: GravityConstant,
+    /// 重力が飽和する距離．
+    pub gravity_cutoff: Meter,
+    /// `質点-グリッド重心間距離/グリッド長さ`がこの値を上回ったら，グリッド内の情報を統合した引力計算を行う．
+    /// この値が大きいほど計算は万有引力則に則ったものになるが計算は遅くなり，小さいほど計算が早くなるが正確性は落ちる．
+    pub minimum_ratio_for_integration: Unitless,
+    /// 質点の密度．半径の計算に利用する．
+    pub density: Density,
+}
+
+impl GravityCalculationParameter{
+    pub fn default_setting()->GravityCalculationParameter{
+        Self{
+            gravity_constant:GravityConstant::new(1.0),
+            gravity_cutoff: Meter::new(2.5),
+            minimum_ratio_for_integration: Unitless::new(2.0),
+            density:Density::new(5.0),
+        }
+    }
+}
+
 /// 静止した質点を表す．
 #[derive(Debug, Copy, Clone)]
 struct StaticMassPoint {
@@ -91,15 +115,10 @@ impl ChildRectLocation {
 /// # Params
 /// 1. `mass_points` 質点
 /// 1. `accels` 計算結果の格納先．
-/// 1. `gravity_constant` 万有引力定数．
-/// 1. `minimum_ratio_for_integration` `質点-グリッド重心間距離/グリッド長さ`がこの値を上回ったら，グリッド内の情報を統合した引力計算を行う．
-/// この値が大きいほど計算は万有引力則に則ったものになるが計算は遅くなり，小さいほど計算が早くなるが正確性は落ちる．
 pub fn calculate_accels(
     mass_points: &[MassPoint],
     accels: &mut [Pair<Accel>],
-    gravity_constant: GravityConstant,
-    minimum_ratio_for_integration: Unitless,
-    gravity_cutoff: Meter,
+    param: GravityCalculationParameter,
 ) {
     let root = {
         let mut root = construct_root(mass_points);
@@ -116,15 +135,7 @@ pub fn calculate_accels(
         .copied()
         .map(StaticMassPoint::from_mass_point)
         .zip_eq(accels.iter_mut())
-        .for_each(|(mass_point, accel)| {
-            *accel = calculate_accel(
-                mass_point,
-                &root,
-                gravity_constant,
-                gravity_cutoff,
-                minimum_ratio_for_integration,
-            )
-        });
+        .for_each(|(mass_point, accel)| *accel = calculate_accel(mass_point, &root, param));
 }
 
 fn construct_root(mass_points: &[MassPoint]) -> TreeNode<Rect> {
@@ -212,9 +223,7 @@ fn construct_tree<I: ExactSizeIterator<Item = StaticMassPoint>>(
 fn calculate_accel(
     mass_point: StaticMassPoint,
     rect: &TreeNode<Rect>,
-    gravity_constant: GravityConstant,
-    gravity_cutoff: Meter,
-    minimum_ratio_for_integration: Unitless,
+    param: GravityCalculationParameter,
 ) -> Pair<Accel> {
     let distance_condition = {
         let rect = rect.data();
@@ -228,7 +237,7 @@ fn calculate_accel(
         let ratio = norm / len2;
 
         // 質点と重心が十分離れていれば，領域内の全質点の内容を統合しておｋ
-        ratio > minimum_ratio_for_integration
+        ratio > param.minimum_ratio_for_integration
     };
     // 領域に子がもうなければ統合しておｋ．なぜならその領域には質点が1つしかないから．
     let tree_condition = rect.is_leaf();
@@ -240,21 +249,13 @@ fn calculate_accel(
         if rect.mass_center == mass_point.position {
             Default::default()
         } else {
-            accel_between(mass_point, rect, gravity_constant, gravity_cutoff)
+            accel_between(mass_point, rect, param)
         }
     } else {
         debug_assert!(!rect.is_leaf());
         rect.children()
             .iter()
-            .map(|child| {
-                calculate_accel(
-                    mass_point,
-                    child,
-                    gravity_constant,
-                    gravity_cutoff,
-                    minimum_ratio_for_integration,
-                )
-            })
+            .map(|child| calculate_accel(mass_point, child, param))
             .fold(Default::default(), |acc, cur| acc + cur)
     }
 }
@@ -262,8 +263,7 @@ fn calculate_accel(
 fn accel_between(
     receiver: StaticMassPoint,
     applier: &Rect,
-    gravity_constant: GravityConstant,
-    gravity_cutoff: Meter,
+    param: GravityCalculationParameter,
 ) -> Pair<Accel> {
     let diff = applier.mass_center - receiver.position;
     let square_sum = diff
@@ -273,8 +273,9 @@ fn accel_between(
 
     let normal_diff = diff / square_sum.sqrt();
 
+    let gravity_cutoff = param.gravity_cutoff;
     let cutoff = gravity_cutoff * gravity_cutoff;
     let len = square_sum + cutoff;
 
-    normal_diff * gravity_constant * applier.mass / len
+    normal_diff * param.gravity_constant * applier.mass / len
 }

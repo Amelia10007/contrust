@@ -1,3 +1,4 @@
+use crate::gravity_calc::GravityCalculationParameter;
 use crate::mass::MassPoint;
 use crate::solver::{RungeKutta4, Solver};
 use crate::state::State;
@@ -12,15 +13,13 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct Universe {
-    gravity_constant: GravityConstant,
+    gravity_calc_param: GravityCalculationParameter,
 
     ms: Vec<Kilogram>,
     xs: Vec<Meter>,
     ys: Vec<Meter>,
     us: Vec<Velocity>,
     vs: Vec<Velocity>,
-
-    minimum_ratio_for_integration: Unitless,
 }
 
 impl Universe {
@@ -41,13 +40,12 @@ impl Universe {
         crate::utils::set_panic_hook();
 
         Self {
-            gravity_constant: GravityConstant::new(1.0),
+            gravity_calc_param: GravityCalculationParameter::default_setting(),
             ms: vec![],
             xs: vec![],
             ys: vec![],
             us: vec![],
             vs: vec![],
-            minimum_ratio_for_integration: Unitless::new(1.0),
         }
     }
 
@@ -76,19 +74,18 @@ impl Universe {
     }
 
     pub fn set_gravity_constant(&mut self, gravity_constant: f64) {
-        self.gravity_constant = GravityConstant::new(gravity_constant);
+        self.gravity_calc_param.gravity_constant = GravityConstant::new(gravity_constant);
     }
 
     pub fn set_minimum_ratio_for_integration(&mut self, ratio: Quantity) {
-        self.minimum_ratio_for_integration = Unitless::new(ratio);
+        self.gravity_calc_param.minimum_ratio_for_integration = Unitless::new(ratio);
     }
 
     pub fn tick(&mut self, duration_second: Quantity) {
         RungeKutta4::progress(self, Second::new(duration_second));
         //ForwardEuler::progress(self, Second::new(duration_second));
 
-        let density = Density::new(5.0);
-        let masses = merge_masspoints(self.masses().collect(), density);
+        let masses = merge_masspoints(self.masses().collect(), self.gravity_calc_param.density);
 
         self.ms = masses.iter().map(|mp| mp.mass).collect();
         self.xs = masses.iter().map(|mp| mp.position.x).collect();
@@ -118,15 +115,11 @@ impl State for Universe {
             .map(|(&u, &v)| Pair::new(u, v))
             .collect();
 
-        let gravity_cutoff = Meter::new(2.5);
-
         let mut accels = vec![Default::default(); self.mass_count()];
         crate::gravity_calc::calculate_accels(
             &self.masses().collect::<Vec<_>>(),
             &mut accels,
-            self.gravity_constant,
-            self.minimum_ratio_for_integration,
-            gravity_cutoff,
+            self.gravity_calc_param,
         );
 
         UniverseDiff { velocities, accels }
@@ -189,13 +182,12 @@ impl Mul<Second> for UniverseDiff {
         let us = self.accels.iter().map(|&a| a.x * rhs).collect();
         let vs = self.accels.iter().map(|&a| a.y * rhs).collect();
         Universe {
-            gravity_constant: GravityConstant::default(),
+            gravity_calc_param: GravityCalculationParameter::default_setting(),
             ms: vec![],
             xs,
             ys,
             us,
             vs,
-            minimum_ratio_for_integration: Unitless::default(),
         }
     }
 }
